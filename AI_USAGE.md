@@ -140,7 +140,7 @@
 | 评分确定性 | 同一 fixture 重复构建，分数与指纹一致；AI 前后指纹一致 | 通过 |
 | 危险输入 | 路径穿越、绝对路径、symlink、zip bomb、Windows 保留名、大小写冲突 | 拒绝 / 跳过并告警 |
 | API 契约 | FastAPI TestClient：健康、扫描提交、报告、导出、SPA fallback、404 | 通过 |
-| 真实仓库 | Gitee RuoYi 完整扫描（归档被反爬 → 浅克隆兜底）；GitHub codeload 单独实测 | Gitee 成功；GitHub 需 Token 配额 |
+| 真实仓库 | Gitee RuoYi 完整扫描（归档被反爬 → 浅克隆兜底）；GitHub `Plazmaz/leaky-repo` 完整扫描（限额重置后） | 均成功；GitHub 报告 33/F，4 critical + 6 high，证据全部脱敏 |
 | AI 端到端 | 本地 Mock OpenAI 兼容服务：AI `ready`、参考分 68、主评分/指纹不变、mock 服务确认 payload 无原始假密钥 | 通过（mock 仅验证链路，不代表真实模型质量） |
 | 前端 | `tsc --noEmit`、`vite build`、Edge headless 截图 | 通过 |
 | AI 输出 | Pydantic schema 校验、参考分 clamp、超时/失败降级、风险事实不被改写 | 通过 |

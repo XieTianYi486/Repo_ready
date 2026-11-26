@@ -6,6 +6,10 @@
 
 ![报告页](docs/screenshots/report.png)
 
+![安全报告示例](docs/screenshots/report-security.png)
+
+> 安全报告示例：`Plazmaz/leaky-repo` 检出私钥、`.env` 入库、npm/docker 凭据等 16 条风险；安全维度 0 分，总分 33 / F，所有证据均已脱敏。
+
 ---
 
 ## 为什么做这个
@@ -299,6 +303,9 @@ npm run build
 | `github.com/octocat/Hello-World` | 极简仓库低分与缺失项 |
 
 > 仓库内容会变化，真实分数仅用于演示；单测断言只针对固定 fixture。
+>
+> 本机已完成 **Gitee `y_project/RuoYi`** 与 **GitHub `Plazmaz/leaky-repo`** 的完整实时扫描：
+> 前者验证中文 README、Java 依赖、`ry.sh`/`ry.bat` 与归档反爬→浅克隆兜底；后者验证私钥、`.env`、npm/docker 凭据识别、脱敏与安全封顶。
 
 ---
 
