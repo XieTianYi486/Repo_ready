@@ -595,8 +595,8 @@ Report {
 4. **失败/限流兜底**：
    - HEAD 检查失败 → `status=unknown`，展示缓存报告并标注"无法确认是否有更新"；不用旧数据冒充最新。
    - GitHub 403/429 → 读取 `X-RateLimit-Reset` / `Retry-After`，提示重置时间；检查结果内存缓存 5 分钟，避免每次刷新都打 API。
-   - 元数据 API 失败但归档可用 → 降级：从归档根目录名 `{repo}-{sha}/` 解析 commit SHA（两平台实测均如此），用 SHA 归档保证快照一致；提交信息与 stars 等字段可缺省。
-   - 归档失败 → Gitee 走 `git clone --depth 1`；GitHub 重试 2 次并给出明确错误。
+   - Gitee HEAD 获取失败 → 使用 `git ls-remote` 兜底；元数据失败会返回明确错误，不以“无元数据的归档”替代，避免 commit 标注不准确。
+   - 归档失败 → Gitee 走 `git clone --depth 1`，并核对克隆 SHA 与元数据 HEAD；GitHub 重试后给出明确错误。
    - AI/报告缓存损坏 → 删除损坏文件并按未命中处理。
 
 ### 12.2 生产级增量方案（README 设计说明，不实现）
