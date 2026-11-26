@@ -148,6 +148,9 @@ def _frontend_needs_build(rebuild: bool) -> bool:
     src = FRONTEND / "src"
     if src.exists():
         candidates.extend(path for path in src.rglob("*") if path.is_file())
+    public = FRONTEND / "public"
+    if public.exists():
+        candidates.extend(path for path in public.rglob("*") if path.is_file())
     return any(path.exists() and path.stat().st_mtime > dist_mtime for path in candidates)
 
 

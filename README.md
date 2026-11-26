@@ -92,6 +92,7 @@ npm run dev
 - 生产模式：FastAPI 托管 `frontend/dist`，访问 `http://127.0.0.1:8000`
 - 开发模式：Vite 访问 `http://127.0.0.1:5173`，`/api` 代理到 8000
 - 也可以直接运行 `python scripts/dev.py` 同时启动两个开发进程
+- 若 Windows 上 `npm` 报“找不到 node”，把 Node 安装目录加入系统 PATH，或直接用 `py -3.12 scripts/start.py --rebuild`（启动器会自动定位 Node）
 
 ### 可选配置
 
