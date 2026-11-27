@@ -358,6 +358,7 @@ docs/
 - 归档体积 / 文件数 / 文本扫描量有上限，超限会截断并在报告中标明。
 - URL 中的分支只取 `/tree/` 后第一段；带 `/` 的复杂分支请用默认分支或 API 参数（当前 UI 未暴露分支选择）。
 - Gitee 归档接口可能被 WAF 拦截，会自动回退 `git clone --depth 1`；克隆期间分支移动会触发 `snapshot_warning`。
+- **网络 / 代理**：后端使用**系统证书库**（`ssl.create_default_context()`），兼容企业代理 / 加速器安装的自签 CA。如 GitHub API 报 `CERTIFICATE_VERIFY_FAILED`，请确认代理根证书已装入系统信任库、系统时间正确，或设置 `SSL_CERT_FILE` 指向可用的 CA 包；工具不会通过关闭 TLS 校验来规避问题。
 - **文件级增量扫描是设计说明，未在本实现中启用**；当前缓存粒度是“仓库 + 分支 + commit 的整份报告”。
 
 ---

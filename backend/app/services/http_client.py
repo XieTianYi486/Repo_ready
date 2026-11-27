@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import random
+import ssl
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -87,6 +88,13 @@ def _backoff(attempt: int) -> None:
 class HttpClient:
     def __init__(self, timeout_seconds: float = 60.0, max_redirects: int = 5) -> None:
         self.max_redirects = max_redirects
+        # Use the OS trust store instead of certifi's bundled roots. Corporate
+        # proxies / local accelerators often install a private CA in the OS store
+        # that certifi does not know about, which breaks GitHub API TLS.
+        try:
+            verify: ssl.SSLContext | bool = ssl.create_default_context()
+        except Exception:
+            verify = True
         self._client = httpx.Client(
             timeout=httpx.Timeout(
                 connect=10.0,
@@ -95,6 +103,7 @@ class HttpClient:
                 pool=timeout_seconds,
             ),
             follow_redirects=False,
+            verify=verify,
             headers={
                 "User-Agent": USER_AGENT,
                 "Accept-Encoding": "identity",

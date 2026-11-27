@@ -129,6 +129,17 @@
 | 五维使用雷达图 | dataviz 规范建议比较类数据用条形；改为条形仪表 |
 | AI 不给参考分 | 用户明确要求独立参考分；保留但明确标注“不影响主评分” |
 
+### 记录 8：httpx 默认 certifi 导致 GitHub API TLS 失败
+
+- **AI 的初版实现**：`HttpClient` 使用 httpx 默认证书校验（certifi 证书包）。
+- **实际情况**：用户开启网络加速器后扫描 `Plazmaz/leaky-repo` 报 `NETWORK_ERROR`；服务端直接请求 `api.github.com` 报 `SSL: CERTIFICATE_VERIFY_FAILED`。
+- **如何发现**：用户截图反馈扫描失败；服务端诊断显示不是 Token/限流，而是 TLS 证书链问题。对比测试发现：
+  - httpx 默认 certifi 上下文：失败
+  - `ssl.create_default_context()`（系统证书库）：HTTP 200
+  - codeload 归档：正常
+- **修正**：`HttpClient` 改用系统信任库，同时保留 TLS 校验（没有使用 `verify=False`）；并增加 README 代理/证书排障说明。
+- **验证**：修复后 GitHub `Plazmaz/leaky-repo` 强制重扫成功（33/F，4 critical + 6 high），Token 配额正常。
+
 ---
 
 ## 4. 如何验证 AI 输出（不是“看着像就行”）
