@@ -208,6 +208,7 @@ def analyze_secrets(ctx: AnalyzerContext) -> AnalyzerOutput:
                     )
                     continue
         is_env_file = _is_env_file(name)
+        scope = file_scope(entry.rel_path)
         text = ctx.index.text_for(entry)
         if text is None:
             continue
@@ -216,6 +217,8 @@ def analyze_secrets(ctx: AnalyzerContext) -> AnalyzerOutput:
             env_text = text
             if _is_fixture_path(entry.rel_path):
                 severity = "low"
+            elif scope in {"test", "docs"}:
+                severity = "medium"
             else:
                 severity = "critical" if _env_has_real_values(env_text) else "high"
             fingerprint = sha256_short(f"env:{entry.rel_path}", 12)
@@ -233,7 +236,6 @@ def analyze_secrets(ctx: AnalyzerContext) -> AnalyzerOutput:
                 )
             )
         starts = line_starts(text)
-        scope = file_scope(entry.rel_path)
         per_file = 0
         for rule in SECRET_RULES:
             for match in rule.pattern.finditer(text):
@@ -248,12 +250,18 @@ def analyze_secrets(ctx: AnalyzerContext) -> AnalyzerOutput:
                     continue
                 if rule.generic and _should_skip_generic(value):
                     continue
-                severity = (
-                    "low"
-                    if _is_fixture_path(entry.rel_path)
-                    else severity_for_scope(rule, scope)
-                )
-                if rule.generic and shannon_entropy(value) >= 3.8 and len(value) >= 24:
+                if _is_fixture_path(entry.rel_path):
+                    severity = "low"
+                elif is_env_file and scope in {"test", "docs"}:
+                    severity = "medium"
+                else:
+                    severity = severity_for_scope(rule, scope)
+                if (
+                    rule.generic
+                    and shannon_entropy(value) >= 3.8
+                    and len(value) >= 24
+                    and not (is_env_file and scope in {"test", "docs"})
+                ):
                     if severity == "medium":
                         severity = "high"
                 line = line_number_at(starts, match.start())

@@ -203,3 +203,22 @@ def test_fixture_secrets_are_low_severity(tmp_path):
     assert output.section.counts_by_severity.get("critical", 0) == 0
     assert output.section.counts_by_severity.get("high", 0) == 0
     assert output.score > 0
+
+
+def test_test_env_file_is_demoted(tmp_path):
+    root = make_repo(
+        tmp_path,
+        {
+            "tests/test_apps/.env": (
+                "SECRET_KEY=sk-proj-ABCDEFGHIJKLMNOPQRSTUVWX1234\n"
+            ),
+        },
+    )
+    _, output = run_secrets(root)
+    env_finding = next(
+        finding for finding in output.section.findings if finding.rule_id == "SEC-ENV-FILE"
+    )
+    assert env_finding.severity == "medium"
+    assert output.section.counts_by_severity.get("critical", 0) == 0
+    assert output.section.counts_by_severity.get("high", 0) == 0
+    assert output.score > 0

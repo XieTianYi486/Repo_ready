@@ -172,13 +172,25 @@
 - **验证**：对用户的旧报告调用真实 `qwen-plus`，状态变为 `ready`，参考分 72；主评分 69 与 fingerprint 不变。首页/报告页重新加载后 AI 建议正常展示。
 - **代码位置**：`frontend/src/components/AiAdvicePanel.tsx`、`frontend/src/pages/ReportPage.tsx`。
 
+### 记录 11：测试目录里的 `.env` 被当成高危并封顶
+
+- **AI 的初版实现**：所有 `.env` 一律按 critical/high 处理，测试目录里的测试用 `.env` 也一样，会触发总分封顶。
+- **如何发现**：跨项目验收扫描 `pallets/flask` 得到 69/D；检查发现 high 来自 `tests/test_apps/.env`（Flask 测试用配置），不是真实生产凭据。
+- **修正**：
+  - `tests/`、`docs/` 下的 `.env` 及其内部凭据降为 medium；
+  - `fixtures/examples/samples` 下继续保持 low；
+  - 泛化凭据的高熵升级不会把测试 `.env` 再抬回 high；
+  - 新增 `test_test_env_file_is_demoted` 回归测试。
+- **验证**：`flask` 从 **69/D → 78/C**；`Plazmaz/leaky-repo` 仍为 **33/F**（根目录 `.env`/私钥仍被 critical 识别）。
+- **代码位置**：`backend/app/services/analyzers/secrets.py`。
+
 ---
 
 ## 4. 如何验证 AI 输出（不是“看着像就行”）
 
 | 维度 | 验证手段 | 结果 |
 |---|---|---|
-| 后端逻辑 | `pytest` 109 个用例：URL、六类检测、解压安全、评分、缓存、API、AI | 全绿 |
+| 后端逻辑 | `pytest` 110 个用例：URL、六类检测、解压安全、评分、缓存、API、AI | 全绿 |
 | 密钥脱敏 | 断言序列化报告 / 导出 / AI payload 不含 fixture 原始假密钥 | 通过 |
 | 评分确定性 | 同一 fixture 重复构建，分数与指纹一致；AI 前后指纹一致 | 通过 |
 | 危险输入 | 路径穿越、绝对路径、symlink、zip bomb、Windows 保留名、大小写冲突 | 拒绝 / 跳过并告警 |
@@ -200,7 +212,7 @@ curl -sS -L https://codeload.github.com/octocat/Hello-World/tar.gz/7fd1a60b...
 
 # 后端测试
 .venv/Scripts/python -m pytest
-# 109 passed
+# 110 passed
 
 # 前端生产构建
 node node_modules/typescript/bin/tsc --noEmit
