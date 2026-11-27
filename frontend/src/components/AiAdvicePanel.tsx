@@ -35,10 +35,12 @@ function RuleSuggestions({ suggestions }: { suggestions: string[] }) {
 export function AiAdvicePanel({
   report,
   generating,
+  aiEnabled,
   onGenerate,
 }: {
   report: Report;
   generating: boolean;
+  aiEnabled: boolean;
   onGenerate: () => void;
 }) {
   const ai = report.ai;
@@ -47,6 +49,8 @@ export function AiAdvicePanel({
   const isDisabled = ai.status === "disabled";
   const isPending = generating || ai.status === "pending";
   const needsGenerate = ai.status === "not_generated" && !generating;
+  const canGenerate =
+    aiEnabled && (ai.status === "not_generated" || ai.status === "disabled") && !generating;
 
   return (
     <Panel className="p-5" id="ai-advice">
@@ -72,7 +76,7 @@ export function AiAdvicePanel({
               {ai.provider} · {ai.model}
             </Pill>
           ) : null}
-          {needsGenerate ? (
+          {canGenerate ? (
             <Button size="sm" variant="secondary" onClick={onGenerate} disabled={generating}>
               {generating ? <Spinner /> : <Sparkles size={12} aria-hidden="true" />}
               生成 AI 建议
@@ -89,18 +93,32 @@ export function AiAdvicePanel({
 
       {isDisabled ? (
         <div className="mt-4">
-          <EmptyState
-            icon={Bot}
-            title="AI 建议未启用"
-            description="在 .env 中配置 AI_PROVIDER 与 Anthropic / OpenAI 兼容 Key 后重启服务即可启用。核心体检与规则建议不受影响。"
-          />
-          <div className="mt-3 rounded-lg border border-line bg-[#0a1424]/60 p-3 font-mono text-[10px] leading-5 text-muted">
-            AI_PROVIDER=auto
-            <br />
-            ANTHROPIC_API_KEY=...
-            <br />
-            # 或 OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL
-          </div>
+          {aiEnabled ? (
+            <div className="rounded-xl border border-accent-2/20 bg-accent-2/5 p-4">
+              <p className="flex items-center gap-2 text-xs font-medium text-ink">
+                <Sparkles size={14} className="text-accent-2" aria-hidden="true" />
+                AI 已启用，但此报告生成时尚未配置 AI
+              </p>
+              <p className="mt-1.5 text-[11px] leading-5 text-muted">
+                点击右上角「生成 AI 建议」即可为这份旧报告补生成建议；主评分与指纹不会改变。
+              </p>
+            </div>
+          ) : (
+            <>
+              <EmptyState
+                icon={Bot}
+                title="AI 建议未启用"
+                description="在 .env 中配置 AI_PROVIDER 与 Anthropic / OpenAI 兼容 Key 后重启服务即可启用。核心体检与规则建议不受影响。"
+              />
+              <div className="mt-3 rounded-lg border border-line bg-[#0a1424]/60 p-3 font-mono text-[10px] leading-5 text-muted">
+                AI_PROVIDER=auto
+                <br />
+                ANTHROPIC_API_KEY=...
+                <br />
+                # 或 OPENAI_API_KEY / OPENAI_BASE_URL / OPENAI_MODEL
+              </div>
+            </>
+          )}
           <RuleSuggestions suggestions={report.suggestions} />
         </div>
       ) : null}
@@ -121,7 +139,7 @@ export function AiAdvicePanel({
         </div>
       ) : null}
 
-      {needsGenerate ? (
+      {needsGenerate && aiEnabled ? (
         <div className="mt-4 rounded-xl border border-line bg-[#0a1424]/50 p-4">
           <p className="flex items-center gap-2 text-xs font-medium text-ink">
             <Sparkles size={14} className="text-accent-2" aria-hidden="true" />

@@ -187,7 +187,7 @@ export function ReportPage() {
   useEffect(() => {
     if (!report || !health) return;
     if (!health.ai.enabled || !health.ai.auto_generate) return;
-    if (report.ai.status !== "not_generated") return;
+    if (report.ai.status !== "not_generated" && report.ai.status !== "disabled") return;
     if (aiTriggered.current === report.id) return;
     aiTriggered.current = report.id;
     void generateAi(report.id);
@@ -622,6 +622,7 @@ export function ReportPage() {
           <AiAdvicePanel
             report={report}
             generating={aiGenerating}
+            aiEnabled={health?.ai.enabled ?? false}
             onGenerate={() => generateAi(report.id)}
           />
         </section>

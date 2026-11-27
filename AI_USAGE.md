@@ -160,6 +160,18 @@
 - **验证**：`got` 从 **48/F → 76/C**；`Plazmaz/leaky-repo` 仍为 **33/F**（真实私钥仍被 critical 识别），说明误报修复没有削弱真阳性。
 - **代码位置**：`backend/app/services/analyzers/secrets.py`、`backend/app/services/file_index.py`。
 
+### 记录 10：旧报告的 disabled 状态没有 AI 生成按钮
+
+- **AI 的初版实现**：前端只为 `ai.status === "not_generated"` 显示「生成 AI 建议」按钮；对于在 AI 配置之前扫描、状态为 `disabled` 的旧报告，只显示“AI 未启用”，没有补生成入口。
+- **如何发现**：用户配置阿里云百炼 Key 后反馈“接入建议这块怎么没有”；检查发现用户打开的报告 `ai.status=disabled`（扫描时 AI 尚未配置），后端 `/api/health` 已启用 AI，但前端没有按钮。
+- **修正**：
+  - `AiAdvicePanel` 接收后端 `ai.enabled` 状态；
+  - 后端 AI 已启用时，`disabled` 旧报告也显示「生成 AI 建议」；
+  - `AI_AUTO_GENERATE=true` 时，`disabled` 旧报告也允许自动生成；
+  - README 补充“旧报告可补生成”说明。
+- **验证**：对用户的旧报告调用真实 `qwen-plus`，状态变为 `ready`，参考分 72；主评分 69 与 fingerprint 不变。首页/报告页重新加载后 AI 建议正常展示。
+- **代码位置**：`frontend/src/components/AiAdvicePanel.tsx`、`frontend/src/pages/ReportPage.tsx`。
+
 ---
 
 ## 4. 如何验证 AI 输出（不是“看着像就行”）
