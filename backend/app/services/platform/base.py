@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from urllib.parse import quote
 
 from ...errors import ScanError
@@ -9,10 +10,27 @@ from ..http_client import HttpClient, JsonResult, _retry_after
 from .parser import ParsedRepo
 
 
+@dataclass
+class TreeEntry:
+    path: str
+    type: str = "blob"
+    size: int = 0
+    sha: str = ""
+    mode: str = ""
+
+
+@dataclass
+class TreeResult:
+    entries: list[TreeEntry] = field(default_factory=list)
+    truncated: bool = False
+    warnings: list[str] = field(default_factory=list)
+
+
 class PlatformAdapter(ABC):
     platform: Platform
     api_hosts: tuple[str, ...]
     archive_hosts: tuple[str, ...]
+    raw_hosts: tuple[str, ...]
 
     def __init__(self, token: str = "") -> None:
         self.token = token
@@ -29,6 +47,17 @@ class PlatformAdapter(ABC):
 
     @abstractmethod
     def archive_url(self, parsed: ParsedRepo, ref: str, *, by_sha: bool) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    def fetch_tree(
+        self, client: HttpClient, parsed: ParsedRepo, sha: str
+    ) -> TreeResult:
+        """List blob paths for the sparse/large-repository fallback."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def raw_url(self, parsed: ParsedRepo, sha: str, path: str) -> str:
         raise NotImplementedError
 
     def blob_url(

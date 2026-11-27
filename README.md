@@ -43,6 +43,7 @@ RepoReady 把这些检查自动化，并用**确定性规则评分**给出可复
 | 风险清单 | 严重度、维度、文件行号、脱敏证据、修复建议、源码链接；筛选 / 搜索 / 展开 |
 | 更新跟踪 | 报告绑定 commit；同 commit 秒回缓存；「检查更新」；README 另附生产级增量设计 |
 | 报告导出 | JSON / Markdown；密钥始终脱敏 |
+| 超大仓库降级 | 归档超限时自动切换**稀疏扫描**（Tree API + 关键文件 raw 拉取）；报告明确标注“部分扫描” |
 | AI 加分项 | Anthropic / OpenAI 兼容双适配器；总结、阻断项、快速收益、接入步骤、独立参考分；失败不影响报告 |
 
 **支持平台**：GitHub（codeload 归档 + REST API）、Gitee（归档 / Git 浅克隆 + API v5）。仅支持**公开仓库**，私有仓库会被主动拒绝。
@@ -286,12 +287,13 @@ npm run typecheck
 npm run build
 ```
 
-当前状态：**110 个后端测试全部通过**，覆盖：
+当前状态：**111 个后端测试全部通过**，覆盖：
 
 - URL 解析与 SSRF / 路径穿越拒绝；
 - README / 依赖 / 启动 / Windows / 路径 / 密钥六类检测与误报回归；
 - `.env` 入库、`.gitignore` 覆盖、私钥、Bearer、JWT、各云厂商 Key；
 - 归档路径穿越、symlink、zip bomb、文件数上限、Windows 保留名 / 大小写冲突；
+- 超大仓库稀疏快照选择、锁文件占位与部分扫描标记；
 - 评分权重、封顶、指纹稳定性；
 - 报告缓存 / 索引 / 历史 / 损坏隔离；
 - API 健康检查、扫描提交、报告、导出、SPA fallback、错误码；
@@ -304,13 +306,18 @@ npm run build
 | `github.com/Plazmaz/leaky-repo` | 密钥识别、脱敏、封顶、风险排序 |
 | `github.com/ChrisTitusTech/winutil` | PowerShell 脚本盘点、Windows 风险 |
 | `github.com/sindresorhus/got` | 规范 Node 项目高分样本 |
+| `github.com/expressjs/express` | 规范 Node 框架，82/B |
+| `github.com/pallets/flask` | Python 框架，测试 `.env` 降级，78/C |
 | `gitee.com/y_project/RuoYi` | Gitee 全链路、Java 依赖、`ry.sh`/`ry.bat`、浅克隆兜底 |
+| `gitee.com/y_project/RuoYi-Vue` | Gitee Java 项目，69/D |
+| `github.com/redis/redis` | 超大仓库稀疏扫描（约 222MB 元数据体积，270 关键文件，78/C，partial） |
 | `github.com/octocat/Hello-World` | 极简仓库低分与缺失项 |
 
 > 仓库内容会变化，真实分数仅用于演示；单测断言只针对固定 fixture。
 >
-> 本机已完成 **Gitee `y_project/RuoYi`** 与 **GitHub `Plazmaz/leaky-repo`** 的完整实时扫描：
-> 前者验证中文 README、Java 依赖、`ry.sh`/`ry.bat` 与归档反爬→浅克隆兜底；后者验证私钥、`.env`、npm/docker 凭据识别、脱敏与安全封顶。
+> 本机已完成 **Gitee `y_project/RuoYi`**、**GitHub `Plazmaz/leaky-repo`** 等项目的实时扫描：
+> 验证中文 README、Java 依赖、`ry.sh`/`ry.bat`、归档反爬→浅克隆兜底、私钥/`.env`/npm/docker 凭据识别、脱敏与安全封顶。
+> `redis/redis` 验证了超大仓库不再直接失败，而是降级为标注清楚的稀疏扫描。
 
 ---
 
@@ -360,6 +367,7 @@ docs/
 - URL 中的分支只取 `/tree/` 后第一段；带 `/` 的复杂分支请用默认分支或 API 参数（当前 UI 未暴露分支选择）。
 - Gitee 归档接口可能被 WAF 拦截，会自动回退 `git clone --depth 1`；克隆期间分支移动会触发 `snapshot_warning`。
 - **网络 / 代理**：后端使用**系统证书库**（`ssl.create_default_context()`），兼容企业代理 / 加速器安装的自签 CA。如 GitHub API 报 `CERTIFICATE_VERIFY_FAILED`，请确认代理根证书已装入系统信任库、系统时间正确，或设置 `SSL_CERT_FILE` 指向可用的 CA 包；工具不会通过关闭 TLS 校验来规避问题。
+- **超大仓库采用稀疏扫描**：仓库元数据体积超过阈值或归档触发体积/文件上限时，改用平台 Tree API 选择 README、清单、启动/Windows 脚本与配置/源码样本，逐文件拉取；报告 `limits.truncated=true` 并显示“部分扫描”。安全与硬编码路径仅覆盖已拉取文件，不能视为全仓库结论。
 - **文件级增量扫描是设计说明，未在本实现中启用**；当前缓存粒度是“仓库 + 分支 + commit 的整份报告”。
 
 ---

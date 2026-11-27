@@ -37,6 +37,7 @@ from .platform.parser import ParsedRepo
 from .platform.registry import get_adapter
 from .report_store import ReportStore
 from .scoring import aggregate_risks, build_score
+from .sparse import SparseResult, build_sparse_snapshot
 from .suggestions import build_suggestions
 
 logger = logging.getLogger(__name__)
@@ -227,39 +228,99 @@ class ScanService:
                     return cached
 
                 temp_dir = make_temp_dir(self.settings.data_dir / "tmp", "scan-")
-                _emit(progress, "downloading", 22, "流式下载仓库快照（按 commit SHA）")
                 commit = head
                 archive_bytes = 0
                 extract_warnings: list[str] = []
-                try:
-                    archive_path = download_archive(
-                        client,
-                        adapter,
-                        parsed,
-                        head.sha,
-                        temp_dir,
-                        max_bytes=self.settings.max_archive_bytes,
-                        by_sha=True,
+                sparse_result: SparseResult | None = None
+                sparse_attempted = False
+                repo_root: Path | None = None
+
+                def try_sparse(reason: str) -> bool:
+                    nonlocal sparse_result, sparse_attempted, repo_root, archive_bytes
+                    if sparse_attempted:
+                        return False
+                    sparse_attempted = True
+                    _emit(progress, "extracting", 35, f"仓库较大，尝试稀疏快照：{reason}")
+                    try:
+                        result = build_sparse_snapshot(
+                            client,
+                            adapter,
+                            parsed,
+                            head.sha,
+                            temp_dir / "sparse",
+                        )
+                    except ScanError as sparse_error:
+                        extract_warnings.append(f"稀疏快照失败：{sparse_error.message}")
+                        _emit(progress, "extracting", 40, "稀疏快照失败，尝试常规归档")
+                        return False
+                    sparse_result = result
+                    repo_root = result.root
+                    archive_bytes = 0
+                    extract_warnings.extend(result.warnings)
+                    _emit(
+                        progress,
+                        "extracting",
+                        48,
+                        f"稀疏快照获取 {result.files_written} 个文件（部分扫描）",
                     )
-                    archive_bytes = archive_path.stat().st_size
-                    _check_deadline(deadline)
-                    _emit(progress, "extracting", 40, "安全解压并校验归档条目")
-                    extracted = extract_archive(
-                        archive_path,
-                        temp_dir / "repo",
-                        max_extracted_bytes=self.settings.max_extracted_bytes,
-                        max_files=self.settings.max_files,
+                    return True
+
+                size_threshold = max(
+                    self.settings.max_archive_bytes * 2,
+                    100 * 1024 * 1024,
+                )
+                if repo.size_kb and repo.size_kb * 1024 > size_threshold:
+                    try_sparse("仓库体积超过完整归档阈值")
+
+                if repo_root is None:
+                    _emit(progress, "downloading", 22, "流式下载仓库快照（按 commit SHA）")
+                    try:
+                        archive_path = download_archive(
+                            client,
+                            adapter,
+                            parsed,
+                            head.sha,
+                            temp_dir,
+                            max_bytes=self.settings.max_archive_bytes,
+                            by_sha=True,
+                        )
+                        archive_bytes = archive_path.stat().st_size
+                        _check_deadline(deadline)
+                        _emit(progress, "extracting", 40, "安全解压并校验归档条目")
+                        extracted = extract_archive(
+                            archive_path,
+                            temp_dir / "repo",
+                            max_extracted_bytes=self.settings.max_extracted_bytes,
+                            max_files=self.settings.max_files,
+                        )
+                        repo_root = extracted.root
+                        extract_warnings.extend(extracted.warnings)
+                        _emit(progress, "extracting", 48, f"已解压 {extracted.files_extracted} 个文件")
+                    except ScanError as archive_error:
+                        sparse_fallback_codes = {
+                            "ARCHIVE_TOO_LARGE",
+                            "TOO_MANY_FILES",
+                            "ARCHIVE_INVALID",
+                            "ARCHIVE_EMPTY",
+                        }
+                        if (
+                            archive_error.code in sparse_fallback_codes
+                            and try_sparse("归档超过体积/文件上限")
+                        ):
+                            pass
+                        else:
+                            clone_root, commit, archive_bytes, clone_warnings = self._clone_fallback(
+                                parsed, chosen_branch, temp_dir, head, archive_error
+                            )
+                            repo_root = clone_root
+                            extract_warnings.extend(clone_warnings)
+                            _emit(progress, "extracting", 48, "归档失败，已使用 Git 克隆兜底")
+                if repo_root is None:
+                    raise ScanError(
+                        "SPARSE_FAILED",
+                        "无法获取仓库文件（归档与稀疏扫描均失败）",
+                        http_status=502,
                     )
-                    repo_root = extracted.root
-                    extract_warnings.extend(extracted.warnings)
-                    _emit(progress, "extracting", 48, f"已解压 {extracted.files_extracted} 个文件")
-                except ScanError as archive_error:
-                    clone_root, commit, archive_bytes, clone_warnings = self._clone_fallback(
-                        parsed, chosen_branch, temp_dir, head, archive_error
-                    )
-                    repo_root = clone_root
-                    extract_warnings.extend(clone_warnings)
-                    _emit(progress, "extracting", 48, "归档失败，已使用 Git 克隆兜底")
                 _check_deadline(deadline)
 
                 if commit.sha != head.sha:
@@ -370,7 +431,8 @@ class ScanService:
                     files_scanned=len(index.entries),
                     files_skipped=index.files_skipped,
                     text_bytes_scanned=index.text_bytes_scanned,
-                    truncated=index.truncated,
+                    truncated=index.truncated
+                    or bool(sparse_result and sparse_result.truncated),
                     warnings=warnings[:20],
                 )
                 duration_ms = int((time.monotonic() - started) * 1000)

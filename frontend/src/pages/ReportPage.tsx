@@ -475,6 +475,19 @@ export function ReportPage() {
           </div>
         </Panel>
 
+        {report.limits.truncated ? (
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-medium/30 bg-medium/8 px-4 py-3">
+            <ShieldAlert size={16} className="mt-0.5 shrink-0 text-medium" aria-hidden="true" />
+            <div>
+              <p className="text-xs font-medium text-medium">部分扫描报告</p>
+              <p className="mt-1 text-[11px] leading-5 text-muted">
+                仓库超过体积/文件上限，已使用稀疏快照，仅分析 README、清单、启动/Windows 脚本与配置/源码样本。
+                安全与硬编码路径结果可能不完整，评分仅供参考。
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         <Panel className="mt-4 p-5 sm:p-6" id="overview">
           <div className="grid gap-6 lg:grid-cols-[260px_1fr] lg:items-start">
             <ScoreRing score={report.score} />

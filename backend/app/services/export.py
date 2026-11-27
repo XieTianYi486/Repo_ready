@@ -40,6 +40,12 @@ def render_markdown(report: Report) -> str:
     if description:
         lines.append(description)
         lines.append("")
+    if report.limits.truncated:
+        lines.append(
+            "> **部分扫描**：仓库超过体积/文件上限，已使用稀疏快照，仅分析关键文件；"
+            "安全与硬编码路径结果可能不完整，评分仅供参考。"
+        )
+        lines.append("")
 
     lines.append("## 接入就绪度")
     lines.append("")

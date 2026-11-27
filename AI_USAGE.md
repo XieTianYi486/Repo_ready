@@ -184,18 +184,28 @@
 - **验证**：`flask` 从 **69/D → 78/C**；`Plazmaz/leaky-repo` 仍为 **33/F**（根目录 `.env`/私钥仍被 critical 识别）。
 - **代码位置**：`backend/app/services/analyzers/secrets.py`。
 
+### 记录 12：稀疏扫描结果缺少 `truncated` 字段，导致大仓库报告组装失败
+
+- **AI 的初版实现**：新增超大仓库稀疏扫描时，`SparseResult` 只有 `tree_truncated`，但报告组装引用了 `sparse_result.truncated`。
+- **如何发现**：真实扫描 `redis/redis`（约 222MB 元数据体积）时，稀疏文件已经拉取成功，但任务在 95% 报 `SCAN_FAILED`；服务端堆栈为 `AttributeError: 'SparseResult' object has no attribute 'truncated'`。
+- **修正**：`SparseResult` 增加 `truncated` 字段并保持部分扫描语义；补充 `test_sparse.py` 单元测试；同步在 UI/导出/AI payload 中标注部分扫描。
+- **验证**：
+  - `redis/redis` 扫描成功，270 个关键文件，78/C，`limits.truncated=true`；
+  - 临时把归档上限设为 1MB 扫描 `psf/requests`，成功触发“归档超限 → 稀疏扫描”分支，54 个文件，73/C。
+- **代码位置**：`backend/app/services/sparse.py`、`backend/app/services/scan_service.py`、`backend/tests/test_sparse.py`。
+
 ---
 
 ## 4. 如何验证 AI 输出（不是“看着像就行”）
 
 | 维度 | 验证手段 | 结果 |
 |---|---|---|
-| 后端逻辑 | `pytest` 110 个用例：URL、六类检测、解压安全、评分、缓存、API、AI | 全绿 |
+| 后端逻辑 | `pytest` 111 个用例：URL、六类检测、解压安全、稀疏扫描、评分、缓存、API、AI | 全绿 |
 | 密钥脱敏 | 断言序列化报告 / 导出 / AI payload 不含 fixture 原始假密钥 | 通过 |
 | 评分确定性 | 同一 fixture 重复构建，分数与指纹一致；AI 前后指纹一致 | 通过 |
 | 危险输入 | 路径穿越、绝对路径、symlink、zip bomb、Windows 保留名、大小写冲突 | 拒绝 / 跳过并告警 |
 | API 契约 | FastAPI TestClient：健康、扫描提交、报告、导出、SPA fallback、404 | 通过 |
-| 真实仓库 | Gitee RuoYi 完整扫描（归档被反爬 → 浅克隆兜底）；GitHub `Plazmaz/leaky-repo` 完整扫描（限额重置后） | 均成功；GitHub 报告 33/F，4 critical + 6 high，证据全部脱敏 |
+| 真实仓库 | Gitee RuoYi 完整扫描（归档被反爬 → 浅克隆兜底）；GitHub `Plazmaz/leaky-repo` 完整扫描（限额重置后）；GitHub `redis/redis` 超大仓库稀疏扫描 | 均成功；leaky-repo 33/F（4 critical + 6 high）；redis 78/C，270 个关键文件，partial=true |
 | AI 端到端 | 本地 Mock OpenAI 兼容服务：AI `ready`、参考分 68、主评分/指纹不变、mock 服务确认 payload 无原始假密钥 | 通过（mock 仅验证链路，不代表真实模型质量） |
 | 真实 AI | 阿里云百炼 OpenAI 兼容接口（`qwen-plus`）：`octocat/Hello-World` 报告真实生成成功；AI 参考分 35，主评分与 fingerprint 均不变；未发送明文密钥 | 通过 |
 | 前端 | `tsc --noEmit`、`vite build`、Edge headless 截图 | 通过 |
@@ -212,7 +222,7 @@ curl -sS -L https://codeload.github.com/octocat/Hello-World/tar.gz/7fd1a60b...
 
 # 后端测试
 .venv/Scripts/python -m pytest
-# 110 passed
+# 111 passed
 
 # 前端生产构建
 node node_modules/typescript/bin/tsc --noEmit

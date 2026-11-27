@@ -4,7 +4,7 @@ from urllib.parse import quote
 
 from ...models import CommitInfo, RepoInfo
 from ..http_client import HttpClient
-from .base import PlatformAdapter, safe_branch_ref
+from .base import PlatformAdapter, TreeEntry, TreeResult, safe_branch_ref
 from .parser import ParsedRepo
 
 
@@ -12,6 +12,7 @@ class GitHubAdapter(PlatformAdapter):
     platform = "github"
     api_hosts = ("api.github.com",)
     archive_hosts = ("codeload.github.com", "github.com")
+    raw_hosts = ("raw.githubusercontent.com", "github.com")
 
     def api_headers(self) -> dict[str, str]:
         headers = {
@@ -117,4 +118,41 @@ class GitHubAdapter(PlatformAdapter):
             "https://codeload.github.com/"
             f"{quote(parsed.owner, safe='')}/{quote(parsed.name, safe='')}"
             f"/tar.gz/{ref_encoded}"
+        )
+
+    def fetch_tree(
+        self, client: HttpClient, parsed: ParsedRepo, sha: str
+    ) -> TreeResult:
+        url = (
+            "https://api.github.com/repos/"
+            f"{quote(parsed.owner, safe='')}/{quote(parsed.name, safe='')}"
+            f"/git/trees/{quote(sha, safe='')}?recursive=1"
+        )
+        result = client.get_json(
+            url,
+            headers=self.api_headers(),
+            allowed_hosts=self.api_hosts,
+        )
+        self.raise_status(result, platform="GitHub")
+        data = result.data or {}
+        entries = []
+        for item in data.get("tree") or []:
+            if item.get("type") != "blob":
+                continue
+            entries.append(
+                TreeEntry(
+                    path=str(item.get("path") or ""),
+                    type="blob",
+                    size=int(item.get("size") or 0),
+                    sha=str(item.get("sha") or ""),
+                    mode=str(item.get("mode") or ""),
+                )
+            )
+        return TreeResult(entries=entries, truncated=bool(data.get("truncated")))
+
+    def raw_url(self, parsed: ParsedRepo, sha: str, path: str) -> str:
+        return (
+            "https://raw.githubusercontent.com/"
+            f"{quote(parsed.owner, safe='')}/{quote(parsed.name, safe='')}/"
+            f"{quote(sha, safe='')}/{quote(path, safe='/')}"
         )

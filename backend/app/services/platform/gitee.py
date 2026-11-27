@@ -5,7 +5,7 @@ from urllib.parse import quote
 from ...errors import ScanError
 from ...models import CommitInfo, RepoInfo
 from ..http_client import HttpClient
-from .base import PlatformAdapter, safe_branch_ref
+from .base import PlatformAdapter, TreeEntry, TreeResult, safe_branch_ref
 from .parser import ParsedRepo
 
 
@@ -13,6 +13,7 @@ class GiteeAdapter(PlatformAdapter):
     platform = "gitee"
     api_hosts = ("gitee.com", "www.gitee.com")
     archive_hosts = ("gitee.com", "www.gitee.com")
+    raw_hosts = ("gitee.com", "www.gitee.com", "raw.giteeusercontent.com")
 
     def api_params(self) -> dict[str, str] | None:
         return {"access_token": self.token} if self.token else None
@@ -110,4 +111,42 @@ class GiteeAdapter(PlatformAdapter):
             "https://gitee.com/"
             f"{quote(parsed.owner, safe='')}/{quote(parsed.name, safe='')}"
             f"/repository/archive/{ref_encoded}.zip"
+        )
+
+    def fetch_tree(
+        self, client: HttpClient, parsed: ParsedRepo, sha: str
+    ) -> TreeResult:
+        url = (
+            "https://gitee.com/api/v5/repos/"
+            f"{quote(parsed.owner, safe='')}/{quote(parsed.name, safe='')}"
+            f"/git/trees/{quote(sha, safe='')}"
+        )
+        result = client.get_json(
+            url,
+            headers=self.api_headers(),
+            params={**({"access_token": self.token} if self.token else {}), "recursive": "1"},
+            allowed_hosts=self.api_hosts,
+        )
+        self.raise_status(result, platform="Gitee")
+        data = result.data or {}
+        entries = []
+        for item in data.get("tree") or []:
+            if item.get("type") != "blob":
+                continue
+            entries.append(
+                TreeEntry(
+                    path=str(item.get("path") or ""),
+                    type="blob",
+                    size=int(item.get("size") or 0),
+                    sha=str(item.get("sha") or ""),
+                    mode=str(item.get("mode") or ""),
+                )
+            )
+        return TreeResult(entries=entries, truncated=bool(data.get("truncated")))
+
+    def raw_url(self, parsed: ParsedRepo, sha: str, path: str) -> str:
+        return (
+            "https://gitee.com/"
+            f"{quote(parsed.owner, safe='')}/{quote(parsed.name, safe='')}/raw/"
+            f"{quote(sha, safe='')}/{quote(path, safe='/')}"
         )

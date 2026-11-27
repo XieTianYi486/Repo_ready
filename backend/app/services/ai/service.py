@@ -261,6 +261,11 @@ class AiService:
                 "commit": report.commit.short_sha,
                 "commit_message": (report.commit.message or "")[:200],
             },
+            "snapshot": {
+                "truncated": report.limits.truncated,
+                "files_scanned": report.limits.files_scanned,
+                "warnings": report.limits.warnings[:3],
+            },
             "score": {
                 "total": report.score.total,
                 "raw_total": report.score.raw_total,
