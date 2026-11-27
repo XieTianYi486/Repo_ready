@@ -133,11 +133,19 @@
 
 - **AI 的初版实现**：`HttpClient` 使用 httpx 默认证书校验（certifi 证书包）。
 - **实际情况**：用户开启网络加速器后扫描 `Plazmaz/leaky-repo` 报 `NETWORK_ERROR`；服务端直接请求 `api.github.com` 报 `SSL: CERTIFICATE_VERIFY_FAILED`。
-- **如何发现**：用户截图反馈扫描失败；服务端诊断显示不是 Token/限流，而是 TLS 证书链问题。对比测试发现：
+- **发现来源（重要）**：这是**用户在真实使用中扫描失败后截图反馈**的问题，不是 AI 自查发现的。用户截图暴露出两个问题：
+  1. GitHub API 的 TLS 证书链校验失败；
+  2. 失败任务仍然显示 100% 进度，容易被误认为“已完成”。
+- **用户截图**：
+  ![用户真实扫描失败截图：NETWORK_ERROR + 100%](docs/screenshots/network-error.png)
+- **诊断**：不是 Token/限流；对比测试发现：
   - httpx 默认 certifi 上下文：失败
   - `ssl.create_default_context()`（系统证书库）：HTTP 200
   - codeload 归档：正常
-- **修正**：`HttpClient` 改用系统信任库，同时保留 TLS 校验（没有使用 `verify=False`）；并增加 README 代理/证书排障说明。
+- **修正**：
+  - `HttpClient` 改用系统信任库，同时保留 TLS 校验（没有使用 `verify=False`）；
+  - 失败任务保留实际进度，不再显示 100%；
+  - README 增加代理/证书排障说明。
 - **验证**：修复后 GitHub `Plazmaz/leaky-repo` 强制重扫成功（33/F，4 critical + 6 high），Token 配额正常。
 
 ---
