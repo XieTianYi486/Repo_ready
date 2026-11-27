@@ -148,13 +148,25 @@
   - README 增加代理/证书排障说明。
 - **验证**：修复后 GitHub `Plazmaz/leaky-repo` 强制重扫成功（33/F，4 critical + 6 high），Token 配额正常。
 
+### 记录 9：测试夹具中的过期证书被当成 critical 私钥
+
+- **AI 的初版实现**：所有 `.pem` / `.key` 文件和非 fixture 的私钥命中都按 critical/high 处理，没有区分 `test/fixtures/` 这类测试夹具。
+- **如何发现**：端到端验收扫描 `sindresorhus/got` 时得到 48/F；检查发现 critical 来自 `test/fixtures/expired-certificate*.pem`（仓库故意提交的过期证书测试夹具），把安全维度打成 0 并触发总分封顶。
+- **修正**：
+  - fixture/examples/samples 路径下的密钥与 `.env` 降为 low；
+  - 其他 test/docs 路径降为 medium；
+  - `.ai` / `.eps` 等设计文件按二进制跳过；
+  - 新增 `test_fixture_secrets_are_low_severity` 回归测试。
+- **验证**：`got` 从 **48/F → 76/C**；`Plazmaz/leaky-repo` 仍为 **33/F**（真实私钥仍被 critical 识别），说明误报修复没有削弱真阳性。
+- **代码位置**：`backend/app/services/analyzers/secrets.py`、`backend/app/services/file_index.py`。
+
 ---
 
 ## 4. 如何验证 AI 输出（不是“看着像就行”）
 
 | 维度 | 验证手段 | 结果 |
 |---|---|---|
-| 后端逻辑 | `pytest` 108 个用例：URL、六类检测、解压安全、评分、缓存、API、AI | 全绿 |
+| 后端逻辑 | `pytest` 109 个用例：URL、六类检测、解压安全、评分、缓存、API、AI | 全绿 |
 | 密钥脱敏 | 断言序列化报告 / 导出 / AI payload 不含 fixture 原始假密钥 | 通过 |
 | 评分确定性 | 同一 fixture 重复构建，分数与指纹一致；AI 前后指纹一致 | 通过 |
 | 危险输入 | 路径穿越、绝对路径、symlink、zip bomb、Windows 保留名、大小写冲突 | 拒绝 / 跳过并告警 |
@@ -176,7 +188,7 @@ curl -sS -L https://codeload.github.com/octocat/Hello-World/tar.gz/7fd1a60b...
 
 # 后端测试
 .venv/Scripts/python -m pytest
-# 108 passed
+# 109 passed
 
 # 前端生产构建
 node node_modules/typescript/bin/tsc --noEmit

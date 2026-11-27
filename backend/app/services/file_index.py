@@ -68,6 +68,8 @@ BINARY_EXTENSIONS = {
     ".bmp",
     ".tiff",
     ".psd",
+    ".ai",
+    ".eps",
     ".woff",
     ".woff2",
     ".ttf",

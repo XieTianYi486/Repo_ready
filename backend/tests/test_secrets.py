@@ -179,3 +179,27 @@ def test_report_serialization_has_no_raw_secret(tmp_path):
     serialized = report.model_dump_json()
     assert "sk-proj-TESTONLY000000000000000000" not in serialized
     assert "AKIA1234567890ABCDEF" not in serialized
+
+
+def test_fixture_secrets_are_low_severity(tmp_path):
+    root = make_repo(
+        tmp_path,
+        {
+            "test/fixtures/expired-certificate-key.pem": (
+                "-----BEGIN RSA PRIVATE KEY-----\n"
+                "MIIEowIBAAKCAQEA...\n"
+                "-----END RSA PRIVATE KEY-----\n"
+            ),
+            "test/fixtures/.env": (
+                "OPENAI_API_KEY=sk-proj-ABCDEFGHIJKLMNOPQRSTUVWX1234\n"
+            ),
+        },
+    )
+    _, output = run_secrets(root)
+    assert output.section.findings
+    assert all(
+        finding.severity == "low" for finding in output.section.findings
+    ), [(finding.rule_id, finding.severity) for finding in output.section.findings]
+    assert output.section.counts_by_severity.get("critical", 0) == 0
+    assert output.section.counts_by_severity.get("high", 0) == 0
+    assert output.score > 0

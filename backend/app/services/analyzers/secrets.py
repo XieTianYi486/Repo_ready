@@ -46,6 +46,17 @@ ENV_VALUE_PLACEHOLDER_RE = re.compile(
 )
 
 
+FIXTURE_PARTS = {
+    "fixtures",
+    "fixture",
+    "examples",
+    "example",
+    "samples",
+    "sample",
+    "__fixtures__",
+}
+
+
 def _is_env_file(name: str) -> bool:
     lower = name.lower()
     if lower in ENV_EXAMPLE_NAMES:
@@ -53,6 +64,22 @@ def _is_env_file(name: str) -> bool:
     if lower.endswith((".example", ".sample", ".template", ".dist")):
         return False
     return bool(ENV_FILE_RE.match(lower))
+
+
+def _is_fixture_path(path: str) -> bool:
+    return any(
+        part.lower() in FIXTURE_PARTS
+        for part in PurePosixPath(path).parts
+    )
+
+
+def _key_file_severity(path: str) -> str:
+    if _is_fixture_path(path):
+        return "low"
+    scope = file_scope(path)
+    if scope in {"docs", "test"}:
+        return "medium"
+    return "critical"
 
 
 def _env_has_real_values(text: str) -> bool:
@@ -154,7 +181,7 @@ def analyze_secrets(ctx: AnalyzerContext) -> AnalyzerOutput:
                         path=entry.rel_path,
                         line=1,
                         masked="[KEY FILE]",
-                        severity="critical",
+                        severity=_key_file_severity(entry.rel_path),  # type: ignore[arg-type]
                         confidence="high",
                         fingerprint=fingerprint,
                     )
@@ -174,7 +201,7 @@ def analyze_secrets(ctx: AnalyzerContext) -> AnalyzerOutput:
                             path=entry.rel_path,
                             line=1,
                             masked="[KEY FILE]",
-                            severity="critical",
+                            severity=_key_file_severity(entry.rel_path),  # type: ignore[arg-type]
                             confidence="high",
                             fingerprint=fingerprint,
                         )
@@ -187,7 +214,10 @@ def analyze_secrets(ctx: AnalyzerContext) -> AnalyzerOutput:
         if is_env_file:
             env_files.append(entry.rel_path)
             env_text = text
-            severity = "critical" if _env_has_real_values(env_text) else "high"
+            if _is_fixture_path(entry.rel_path):
+                severity = "low"
+            else:
+                severity = "critical" if _env_has_real_values(env_text) else "high"
             fingerprint = sha256_short(f"env:{entry.rel_path}", 12)
             findings.append(
                 SecretFinding(
@@ -218,7 +248,11 @@ def analyze_secrets(ctx: AnalyzerContext) -> AnalyzerOutput:
                     continue
                 if rule.generic and _should_skip_generic(value):
                     continue
-                severity = severity_for_scope(rule, scope)
+                severity = (
+                    "low"
+                    if _is_fixture_path(entry.rel_path)
+                    else severity_for_scope(rule, scope)
+                )
                 if rule.generic and shannon_entropy(value) >= 3.8 and len(value) >= 24:
                     if severity == "medium":
                         severity = "high"
