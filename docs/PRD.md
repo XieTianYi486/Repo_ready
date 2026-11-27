@@ -80,7 +80,7 @@
  ├─ 维度卡 ×5：分数、状态、关键证据、详情锚点
  ├─ 风险清单：严重度/分类筛选 + 搜索 + 展开证据（源码行链接）
  ├─ 仓库画像：README / 依赖 / 启动 / Windows 脚本 / 硬编码路径 / 密钥（脱敏）
- ├─ AI 建议：自动生成（若启用）/ 重试 / 未配置引导；独立"AI 参考分"
+ ├─ AI 建议：默认手动生成（AI_AUTO_GENERATE=true 时自动）/ 重试 / 未配置引导；独立"AI 参考分"
  ├─ 更新状态：检查更新 → 有新提交则提示"基于旧 commit"并可重扫
  └─ 操作：复制分享链接、导出 JSON、导出 Markdown、重新体检
 ```
@@ -366,6 +366,7 @@ interface Risk {
 
 ```env
 AI_PROVIDER=auto            # auto | anthropic | openai | off
+AI_AUTO_GENERATE=false      # 打开报告页时自动生成；默认 false
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=claude-opus-5-5
 ANTHROPIC_BASE_URL=         # 可选
@@ -401,7 +402,7 @@ AI_TIMEOUT_SECONDS=30
 - AI 建议条目最多 6 条，字符串长度截断（summary 800 字，其他 300 字）。
 - **不采纳 AI 对风险事实的改写**：风险清单永远来自确定性规则；AI 只解释与排序建议。
 - 校验失败/超时/限流：AI 区 `status=error` + 中文提示 + 重试按钮；主报告不受影响。
-- 生成时机：扫描只产出确定性报告；报告页在 AI 已启用且尚无结果时调用 `POST /api/reports/{id}/ai`，前端显示骨架屏；结果写回报告缓存，避免重复计费。AI 不阻塞扫描主链路。
+- 生成时机：扫描只产出确定性报告；默认由用户在报告页点击「生成 AI 建议」调用 `POST /api/reports/{id}/ai`。设置 `AI_AUTO_GENERATE=true` 时，报告页在 AI 已启用且尚无结果时自动调用。结果写回报告缓存，避免重复计费；AI 不阻塞扫描主链路。
 - 脱敏自检：请求体序列化后再次扫描已知密钥模式；若命中则拒绝发送并记录告警。
 
 ### 7.3 Anthropic 适配器（按官方 SDK 规范）

@@ -110,6 +110,7 @@ npm run dev
 | `GITEE_TOKEN` | 空 | 降低 Gitee API 限流风险 |
 | `AI_PROVIDER` | `auto` | `auto` / `anthropic` / `openai` / `off` |
 | `AI_ENABLED` | `true` | 强制关闭 AI 时设为 `false` |
+| `AI_AUTO_GENERATE` | `false` | 打开报告页时自动生成 AI 建议；默认手动，避免无感计费 |
 | `ANTHROPIC_API_KEY` | 空 | Anthropic Claude Key |
 | `ANTHROPIC_MODEL` | `claude-opus-5-5` | Claude 模型 |
 | `OPENAI_API_KEY` | 空 | OpenAI 兼容接口 Key |
@@ -227,6 +228,7 @@ total = round( Σ(dimension_score × weight) / 100 )
 - **只发脱敏摘要**：仓库元数据、五维分数、Top 风险、README 章节/标题、依赖与启动信号；不发送源码全文与明文密钥。
 - **结构化输出校验**：Pydantic 校验，参考分 clamp 到 0–100，字符串与数组截断；非法字段归一化。
 - **独立参考分**：UI 明确标注“AI 参考分（不影响主评分）”；主评分与指纹在 AI 前后完全一致（有测试覆盖）。
+- **默认按需生成**：打开报告不会自动调用 AI；点击「生成 AI 建议」才发起。设置 `AI_AUTO_GENERATE=true` 可改为自动生成；结果写回报告缓存，避免重复计费。
 - **失败降级**：未配置 / 超时 / 限流 / 结构错误 → 显示中文提示与重试按钮；规则建议始终可用。
 - **隐私**：AI 请求前再次执行高置信密钥自检；命中则拒绝发送。
 
@@ -283,7 +285,7 @@ npm run typecheck
 npm run build
 ```
 
-当前状态：**107 个后端测试全部通过**，覆盖：
+当前状态：**108 个后端测试全部通过**，覆盖：
 
 - URL 解析与 SSRF / 路径穿越拒绝；
 - README / 依赖 / 启动 / Windows / 路径 / 密钥六类检测与误报回归；

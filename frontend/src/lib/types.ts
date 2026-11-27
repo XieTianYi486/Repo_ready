@@ -13,7 +13,12 @@ export interface Health {
   status: string;
   version: string;
   rules_version: string;
-  ai: { enabled: boolean; provider: string | null; model: string | null };
+  ai: {
+    enabled: boolean;
+    provider: string | null;
+    model: string | null;
+    auto_generate: boolean;
+  };
   tokens: { github: boolean; gitee: boolean };
 }
 
@@ -41,6 +46,7 @@ export interface ScanJob {
   cached: boolean;
   error_code: string | null;
   error_message: string | null;
+  retry_after: number | null;
   elapsed_ms: number;
   created_at: string;
   updated_at: string;

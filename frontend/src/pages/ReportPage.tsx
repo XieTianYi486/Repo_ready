@@ -59,6 +59,7 @@ import type {
   AiAdvice,
   DimensionFilter,
   DimensionKey,
+  Health,
   Report,
   SeverityFilter,
   UpdateCheck,
@@ -120,6 +121,7 @@ export function ReportPage() {
   const { reportId } = useParams<{ reportId: string }>();
   const navigate = useNavigate();
   const [report, setReport] = useState<Report | null>(null);
+  const [health, setHealth] = useState<Health | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("all");
@@ -168,14 +170,29 @@ export function ReportPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!report) return;
-    if (report.ai.status !== "not_generated" && report.ai.status !== "error") return;
-    if (report.ai.status === "error") return;
+    let cancelled = false;
+    api
+      .health()
+      .then((data) => {
+        if (!cancelled) setHealth(data);
+      })
+      .catch(() => {
+        // Health is optional; manual AI generation still works.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!report || !health) return;
+    if (!health.ai.enabled || !health.ai.auto_generate) return;
+    if (report.ai.status !== "not_generated") return;
     if (aiTriggered.current === report.id) return;
     aiTriggered.current = report.id;
     void generateAi(report.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [report?.id, report?.ai.status]);
+  }, [report?.id, report?.ai.status, health?.ai.enabled, health?.ai.auto_generate]);
 
   useEffect(() => {
     if (!report) return;

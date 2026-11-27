@@ -44,6 +44,7 @@ class Job:
     cached: bool = False
     error_code: str | None = None
     error_message: str | None = None
+    retry_after: int | None = None
     created_at: str = field(default_factory=utc_now_iso)
     updated_at: str = field(default_factory=utc_now_iso)
     started_monotonic: float | None = None
@@ -149,6 +150,7 @@ class ScanManager:
                     current.stage = "failed"
                     current.error_code = exc.code
                     current.error_message = exc.message
+                    current.retry_after = exc.retry_after
                     current.message = exc.message
                     current.progress = 100
                     current.finished_monotonic = time.monotonic()
@@ -182,6 +184,7 @@ class ScanManager:
             cached=job.cached,
             error_code=job.error_code,
             error_message=job.error_message,
+            retry_after=job.retry_after,
             elapsed_ms=job.elapsed_ms(),
             created_at=job.created_at,
             updated_at=job.updated_at,

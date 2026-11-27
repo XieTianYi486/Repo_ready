@@ -59,6 +59,7 @@ def test_health_examples_and_reports(tmp_path):
         health = client.get("/api/health")
         assert health.status_code == 200
         assert health.json()["ai"]["enabled"] is False
+        assert health.json()["ai"]["auto_generate"] is False
         assert health.json()["tokens"] == {"github": False, "gitee": False}
 
         examples = client.get("/api/examples")

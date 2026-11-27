@@ -53,6 +53,7 @@ class Settings:
 
     ai_provider: str = "auto"
     ai_enabled: bool = True
+    ai_auto_generate: bool = False
     ai_timeout_seconds: int = 30
     anthropic_api_key: str = field(default="", repr=False)
     anthropic_model: str = "claude-opus-5-5"
@@ -93,6 +94,7 @@ class Settings:
             gitee_token=_env_str("GITEE_TOKEN"),
             ai_provider=_env_str("AI_PROVIDER", "auto").lower(),
             ai_enabled=_env_bool("AI_ENABLED", True),
+            ai_auto_generate=_env_bool("AI_AUTO_GENERATE", False),
             ai_timeout_seconds=_env_int("AI_TIMEOUT_SECONDS", 30),
             anthropic_api_key=_env_str("ANTHROPIC_API_KEY"),
             anthropic_model=_env_str("ANTHROPIC_MODEL", "claude-opus-5-5"),
@@ -144,4 +146,5 @@ class Settings:
             "enabled": provider is not None,
             "provider": provider,
             "model": self.ai_model() if provider else None,
+            "auto_generate": self.ai_auto_generate,
         }

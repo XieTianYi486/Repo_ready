@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { api, errorMessage } from "../lib/api";
+import { api, ApiError, errorMessage } from "../lib/api";
 import { cx, formatDuration } from "../lib/format";
 import type { ScanJob } from "../lib/types";
 import {
@@ -52,12 +52,14 @@ export function ScanPage() {
   useEffect(() => {
     let cancelled = false;
     let delay = 650;
+    let failures = 0;
 
     async function poll() {
       if (!jobId || cancelled) return;
       try {
         const next = await api.getJob(jobId);
         if (cancelled) return;
+        failures = 0;
         setJob(next);
         setError("");
         if (next.status === "succeeded" && next.report_id) {
@@ -71,7 +73,19 @@ export function ScanPage() {
         pollRef.current = window.setTimeout(poll, delay);
       } catch (err) {
         if (cancelled) return;
-        setError(errorMessage(err));
+        if (err instanceof ApiError && err.status === 404) {
+          setJob(null);
+          setError(errorMessage(err));
+          return;
+        }
+        failures += 1;
+        setError(
+          failures >= 5
+            ? `连接中断，仍在自动重试（第 ${failures} 次）…`
+            : `连接中断，正在自动重试（${failures}/5）…`,
+        );
+        const retryDelay = Math.min(5000, 700 + failures * 500);
+        pollRef.current = window.setTimeout(poll, retryDelay);
       }
     }
 
@@ -183,6 +197,11 @@ export function ScanPage() {
                 <Button variant="secondary">返回首页</Button>
               </Link>
             </div>
+            {job?.retry_after ? (
+              <p className="text-[11px] leading-5 text-medium">
+                平台建议约 {job.retry_after} 秒后重试；配置 Token 可显著提高限额。
+              </p>
+            ) : null}
             {job?.error_code === "RATE_LIMITED" ? (
               <p className="text-[11px] leading-5 text-muted">
                 提示：在项目根目录的 <code className="font-mono">.env</code> 配置{" "}

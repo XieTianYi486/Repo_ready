@@ -361,6 +361,7 @@ class ScanJobPublic(AppModel):
     cached: bool = False
     error_code: str | None = None
     error_message: str | None = None
+    retry_after: int | None = None
     elapsed_ms: int = 0
     created_at: str
     updated_at: str
@@ -382,6 +383,7 @@ class AiHealth(AppModel):
     enabled: bool
     provider: str | None = None
     model: str | None = None
+    auto_generate: bool = False
 
 
 class TokenHealth(AppModel):
