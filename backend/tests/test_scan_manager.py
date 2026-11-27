@@ -37,3 +37,4 @@ def test_rate_limit_retry_after_is_exposed(tmp_path, monkeypatch):
     assert current.status == "failed"
     assert current.error_code == "RATE_LIMITED"
     assert current.retry_after == 42
+    assert current.progress < 100

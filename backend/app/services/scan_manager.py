@@ -152,7 +152,7 @@ class ScanManager:
                     current.error_message = exc.message
                     current.retry_after = exc.retry_after
                     current.message = exc.message
-                    current.progress = 100
+                    current.progress = min(current.progress, 99)
                     current.finished_monotonic = time.monotonic()
                     current.updated_at = utc_now_iso()
         except Exception as exc:  # pragma: no cover - defensive
@@ -164,7 +164,7 @@ class ScanManager:
                     current.stage = "failed"
                     current.error_code = "SCAN_FAILED"
                     current.error_message = "扫描过程中发生异常，请稍后重试"
-                    current.progress = 100
+                    current.progress = min(current.progress, 99)
                     current.finished_monotonic = time.monotonic()
                     current.updated_at = utc_now_iso()
         finally:
