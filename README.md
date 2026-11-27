@@ -1,5 +1,7 @@
 # RepoReady · Git 仓库接入体检
 
+[![CI](https://github.com/XieTianYi486/Repo_ready/actions/workflows/ci.yml/badge.svg)](https://github.com/XieTianYi486/Repo_ready/actions/workflows/ci.yml)
+
 > 输入一个公开 GitHub / Gitee 仓库链接，自动完成接入前体检：README、依赖清单、启动脚本、Windows 专用脚本、硬编码路径、密钥与敏感信息，输出可解释的接入就绪度评分、五维可视化与按优先级排序的风险清单。
 
 ![首页](docs/screenshots/home.png)
